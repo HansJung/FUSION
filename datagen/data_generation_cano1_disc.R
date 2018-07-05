@@ -21,7 +21,6 @@ fZ = function(D){
   Z = mvrnorm(N, mu, sigma) # Generate N numbers of D-dimensional multivariate normal random variable.
   return(Z)
 }
-Z = fZ(D)
 # Step 2. Generate X 
 ## In here, X such that Z -> X. 
 
@@ -32,7 +31,7 @@ fX = function(D,Z){
   X = round(exp(X)/(exp(X)+1)) # Note X is binary.  
   return(X)
 }
-X = fX(D,Z)
+
 ### Intervened X 
 ### Note that the intervened X (X0 and X1) are NOT affected by Z. 
 X0 = matrix(rep(0,N),nrow=N) # N length of 0 vector
@@ -53,18 +52,22 @@ fY = function(D,Z,X){
   # Y = 10*(exp(Y)/(1+exp(Y)))
   return(Y)
 }
+
+
+# Step 4. Combine all dataset 
+## Combine X,Y,Z 
+### Observational data (Y,X,Z)
+
+Z = fZ(D)
+X = fX(D,Z)
 Y = fY(D,Z,X)
+data = data.frame(cbind(Y,X,Z)) # Observational 
+
 ## Intervened Y (= counterfactual Y) 
 ### Note that X is replaced to X0 and X1. 
 #### (X0, Z) -> Y0; and (X1, Z) -> Y1 
 Y0 = fY(D,Z,X0)
 Y1 = fY(D,Z,X1)
-
-# Step 4. Combine all dataset 
-## Combine X,Y,Z 
-### Observational data (Y,X,Z)
-data = data.frame(cbind(Y,X,Z)) # Observational 
-
 ### Intervened data (Y0,X0,Z) and (Y1,X1,Z)
 dataX0 = data.frame(cbind(Y0,X0,Z)) # Experimental when X=0
 dataX1 = data.frame(cbind(Y1,X1,Z)) # Experimental when X=1

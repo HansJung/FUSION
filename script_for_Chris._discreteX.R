@@ -7,7 +7,7 @@
 # install.packages(c("caret", "glmnet", "randomForest", "RhpcBLASctl", "xgboost", "gam"))
 
 # Step 1. Recall the data. Please refer the comment on data_generation.R 
-source('data_generation.R') 
+source('data_generation_M.R') 
 ## This generate 'data', 'dataX0' and 'dataX1' samples.
 ## Note 'data' is only available samples. 'dataX0' and 'dataX1' are hidden.  
 ### 'data' is observational (Y,X,Z)
