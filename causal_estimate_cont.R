@@ -48,12 +48,11 @@ reducedX = function(X, cutN = 100){
 sampleIntvEst = function(trainModel, sample_X, Z, cutN = 100, N){
   Yhat_intv = rep(0, cutN)
   for (idx in 1:cutN){
-    xi = sample_X[idx]
-    Zi = Z
+    xi = sample_X[idx] # For each sample xi 
     xi_mat = matrix(rep(xi,N),nrow=N) # N length of xi vector
-    XZi = cbind(xi_mat, Zi)
-    colnames(XZi)[1] = 'X'
-    Yhat_intv[idx] = mean(sampleEst(g_xz, XZi))
+    XZi = cbind(xi_mat, Z) # Matrix such that jth row is (xi, zj) for all j
+    colnames(XZi)[1] = 'X' # Change the column name to match
+    Yhat_intv[idx] = mean(sampleEst(g_xz, XZi)) # Average(E[Y|X=xi,Z]  ), which is causal mean estimate
   }
   return(Yhat_intv)
 }
