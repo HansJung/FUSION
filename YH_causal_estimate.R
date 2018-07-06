@@ -91,8 +91,6 @@ spline_CI <- function(data,n,B,alpha) {
               x=seq(from=min(data[,1]),to=max(data[,1]),length.out=n)))
 }
 
-
-
 indivPlotResult = function(X,Y,quant_X, N, B, alpha, mycolor){
   set.seed(1)
   df1 = data.frame(X, Y)
@@ -156,14 +154,14 @@ applyTheme = function(gg1, title){
 
 drawHistogram = function(X,Y){
   df1 = data.frame(X,Y)
-  hist_X = ggplot(df1, aes(x=X)) + geom_histogram(binwidth = 0.1, fill='#FF9999', colour='black') + scale_y_reverse() + theme(axis.line.x = element_line(size = 0.5, colour = "black"),
-                                                                                                                              axis.line.y = element_line(size = 0.5, colour = "black"),
-                                                                                                                              axis.title.x= element_blank(),
-                                                                                                                              axis.line = element_line(size=1, colour = "black"),
-                                                                                                                              panel.border = element_blank(),
-                                                                                                                              panel.background = element_blank(),
-                                                                                                                              plot.title=element_text(size = 20)
-  )
+  mytheme = theme(axis.line.x = element_line(size = 0.5, colour = "black"),
+                  axis.line.y = element_line(size = 0.5, colour = "black"),
+                  axis.title.x= element_blank(),
+                  axis.line = element_line(size=1, colour = "black"),
+                  panel.border = element_blank(),
+                  panel.background = element_blank(),
+                  plot.title=element_text(size = 20))
+  hist_X = ggplot(df1, aes(x=X)) + geom_histogram(binwidth = 0.1, fill='#FF9999', colour='black') + scale_y_reverse() + mytheme
   hist_X = hist_X + scale_x_continuous(position='top')
   return(hist_X)
 }
@@ -218,7 +216,7 @@ histX = drawHistogram(X,Y)
 
 gg_merged1 = mergePlot(gg_intv,histX,'vert')
 gg_merged2 = mergePlot(gg_obs,histX,'vert')
-gg_merged = mergePlot(gg_merged1,gg_merged2,'hori')
+gg_merged_indiv = mergePlot(gg_merged1,gg_merged2,'hori')
 
 # Merged into one plot 
 gg_intv = indivPlotResult(sample_X,Yhat_intv,quant_X,n,B,alpha, color_intv)
