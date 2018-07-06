@@ -107,6 +107,39 @@ indivPlotResult = function(X,Y,quant_X, N, B, alpha, mycolor){
   return(gg1)
 }
 
+twoPlotResult = function(X,Y_intv,Y_obs,quant_X,n, B, alpha, color1, color2){
+  df1_intv = data.frame(x=X, y=Y_intv)
+  df1_obs = data.frame(x=X,y=Y_obs)
+  
+  result_spline_intv = spline_CI(df1_intv, n, B=B,alpha=alpha)
+  result_spline_obs = spline_CI(df1_obs, n, B=B,alpha=alpha)
+  
+  df2_intv = data.frame( x=result_spline_intv$x, y=result_spline_intv$main.curve)
+  df2_obs = data.frame( x=result_spline_obs$x, y=result_spline_obs$main.curve)
+  
+  df3_intv = data.frame( x=result_spline_intv$x, y=result_spline_intv$main.curve, ymin=result_spline_intv$lower.ci, ymax=result_spline_intv$upper.ci   )
+  df3_obs = data.frame( x=result_spline_obs$x, y=result_spline_obs$main.curve, ymin=result_spline_obs$lower.ci, ymax=result_spline_obs$upper.ci   )
+  
+  gg1 = ggplot()
+  gg1 = gg1 + geom_point(data=df1_intv, aes(x=x,y=y), size=1.5,color=color1)
+  gg1 = gg1 + geom_point(data=df1_obs, aes(x=x,y=y), size=1.5, color=color2)
+  gg1 = gg1 + geom_line(data=df2_intv,aes(x=x, y=y),color=color1)
+  gg1 = gg1 + geom_line(data=df2_obs,aes(x=x, y=y), color=color2)
+  gg1 = gg1 + geom_ribbon(data=df3_intv, aes(x=x, ymin=ymin, ymax=ymax),alpha=0.4,fill=color1)
+  gg1 = gg1 + geom_ribbon(data=df3_obs, aes(x=x, ymin=ymin, ymax=ymax),alpha=0.4, fill=color2)
+
+  gg1 = gg1 + theme_bw()
+  gg1 = gg1 + scale_x_continuous(name = "X=x") + scale_y_continuous(name = "Estimated Y",limits=c(min(Y), A=max(Y)))
+  gg1 = gg1 + theme(axis.line.x = element_line(size = 0.5, colour = "black"),
+                    axis.line.y = element_line(size = 0.5, colour = "black"),
+                    axis.line = element_line(size=1, colour = "black"),
+                    panel.border = element_blank(),
+                    panel.background = element_blank(),
+                    plot.title=element_text(size = 20),
+                    text=element_text(size = 16))
+  return(gg1)
+}
+
 applyTheme = function(gg1, title){
   gg1 = gg1 + ggtitle(title)
   gg1 = gg1 + theme_bw()
@@ -190,74 +223,9 @@ gg_merged = mergePlot(gg_merged1,gg_merged2,'hori')
 # Merged into one plot 
 gg_intv = indivPlotResult(sample_X,Yhat_intv,quant_X,n,B,alpha, color_intv)
 gg_obs = plotResult(sample_X, Yhat_obs,quant_X, n,B,alpha,color_obs)
-gg_merged = gg_intv + gg_obs
-
-# 
-# # library("gridExtra")
-# # grid.arrange(arrangeGrob(gg_intv,gg_obs,nrow=1))
-# 
-# library(grid)
-# 
-# 
-# 
-# plot1 = rbind(ggplotGrob(gg_intv), ggplotGrob(hist_X), size = "last")
-# plot2 = rbind(ggplotGrob(gg_obs), ggplotGrob(hist_X), size = "last")
-# grid.newpage()
-# grid.draw(cbind(plot1,plot2,size='last'))
-# 
-# 
-# df1_intv = data.frame(x=sample_X, y=Yhat_intv)
-# result_spline_intv = spline_CI(df1_intv, n, B=B,alpha=alpha)
-# df2_intv = data.frame( x=result_spline_intv$x, y=result_spline_intv$main.curve)
-# df3_intv = data.frame( x=result_spline_intv$x, y=result_spline_intv$main.curve, ymin=result_spline_intv$lower.ci, ymax=result_spline_intv$upper.ci   )
-# 
-# gg1_intv = ggplot(df1_intv, aes(x=x, y=y)) + geom_point(size=1.5)
-# gg1_intv = gg1_intv + geom_line(data=df2_intv,aes(x=x, y=y)) 
-# gg1_intv = gg1_intv + geom_ribbon(data=df3_intv, aes(x=x, ymin=ymin, ymax=ymax),alpha=0.4)
-# 
-# df1_obs = data.frame(x=sample_X, y=Yhat_obs)
-# result_spline_obs = spline_CI(df1_obs,N, B=B,alpha=alpha)
-# df2_obs = data.frame( x=result_spline_obs$x, y=result_spline_obs$main.curve)
-# df3_obs = data.frame( x=result_spline_obs$x, y=result_spline_obs$main.curve, ymin=result_spline_obs$lower.ci, ymax=result_spline_obs$upper.ci   )
-# 
-# gg1_obs = ggplot(df1_obs, aes(x=x, y=y)) + geom_point(size=1.5)
-# gg1_obs = gg1_obs + geom_line(data=df2_obs,aes(x=x, y=y))
-# gg1_obs = gg1_obs + geom_ribbon(data=df3_obs, aes(x=x, ymin=ymin, ymax=ymax),alpha=0.4)
-# 
-# gg1_intv
-# gg1_obs
-# 
-# gg1 = ggplot()
-# gg1 = gg1 + geom_point(data=df1_intv, aes(x=x,y=y), size=1.5,color='red')
-# gg1 = gg1 + geom_point(data=df1_obs, aes(x=x,y=y), size=1.5, color='#56B4E9')
-# gg1 = gg1 + geom_line(data=df2_intv,aes(x=x, y=y),color='red') 
-# gg1 = gg1 + geom_line(data=df2_obs,aes(x=x, y=y), color='#56B4E9') 
-# gg1 = gg1 + geom_ribbon(data=df3_intv, aes(x=x, ymin=ymin, ymax=ymax),alpha=0.4,fill='red')
-# gg1 = gg1 + geom_ribbon(data=df3_obs, aes(x=x, ymin=ymin, ymax=ymax),alpha=0.4, fill='#56B4E9')
-# 
-# gg1 = gg1 + theme_bw()
-# gg1 = gg1 + scale_x_continuous(name = "X=x") + scale_y_continuous(name = "Estimated Y",limits=c(min(Y), A=max(Y)))
-# gg1 = gg1 + theme(axis.line.x = element_line(size = 0.5, colour = "black"),
-#                   axis.line.y = element_line(size = 0.5, colour = "black"),
-#                   axis.line = element_line(size=1, colour = "black"),
-#                   panel.border = element_blank(),
-#                   panel.background = element_blank(),
-#                   plot.title=element_text(size = 20),
-#                   text=element_text(size = 16))
-
-
-
-
-
-# 
-# library(gridExtra)
-# grid.arrange(gg1, hist_X,nrow=2)
-# grid.draw(rbind(ggplotGrob(gg1), ggplotGrob(hist_X), size = "last"))
-
-
-# gg1 = gg1 + geom_vline(data=df1,xintercept=quant_X, linetype='dotted')
-
-# plot(data_intv[,2],data_intv[,1])
+gg_merged = twoPlotResult(sample_X,Yhat_intv,Yhat_obs,quant_X,n,B,alpha,color_intv, color_obs)
+gg_merged = applyTheme(gg_merged,'Merged')
+gg_merged = mergePlot(gg_merged,histX,'vert')
 
 
 
