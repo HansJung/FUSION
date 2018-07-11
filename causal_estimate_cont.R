@@ -83,7 +83,7 @@ spline_estimator <- function(data,n) {
 # Confidence interval of spline 
 spline_CI <- function(data,n,B,alpha) {
   spline_main = spline_estimator(data,n)
-  spline_boots <- replicate(B,spline_estimator(resampler(data),n))
+  spline_boots = replicate(B,spline_estimator(resampler(data),n))
   cis_lower = 2*spline_main - apply(spline_boots,1,quantile,probs=1-alpha/2)
   cis_upper <- 2*spline_main - apply(spline_boots,1,quantile,probs=alpha/2)
   return(list(main.curve=spline_main,lower.ci=cis_lower,upper.ci=cis_upper,
@@ -205,6 +205,10 @@ B = 100 # number of bootstraping iteration for generating confidence interval.
 alpha = 0.01 # Confidence interval (100-alpha)%
 color_intv = "red"
 color_obs = "blue"
+
+data = data.frame(sample_X,Yhat_intv)
+spline_main = spline_estimator(data,n)
+
 
 # Individual 
 gg_intv = indivPlotResult(sample_X,Yhat_intv,quant_X,n,B,alpha, color_intv)
