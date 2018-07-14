@@ -185,8 +185,18 @@ result_table_var <- data.frame(
   TMLE = c(c(var(Y_TMLE_X0),var(Y_TMLE_X1)))
 )
 
+result_table_sd <- data.frame(
+  true = c(sd(Yx0),sd(Yx1)),
+  obs = c(sd(Yobs_X0),sd(Yobs_X1)),
+  regressed = c(sd(hat_Yx0),sd(hat_Yx1)),
+  IPW  = c(sd(Y_reweighted_X0),sd(Y_reweighted_X1)),
+  AIPW = c(sd(Y_AIPW_X0),sd(Y_AIPW_X1)),
+  TMLE = c(sd(Y_TMLE_X0),sd(Y_TMLE_X1))
+)
+
 result_table
 result_table_var
+result_table_sd
 
 # Step 3. Plot!
 ## In this example, the AIPW is used.
@@ -271,6 +281,8 @@ bpobs = bpobs +   theme(axis.line.x = element_line(size = 0.5, colour = "black")
 library("gridExtra")
 grid.arrange(arrangeGrob(bp,bpobs,nrow=1))
 result_table
+result_table_sd
+result_table_var
 
 
 

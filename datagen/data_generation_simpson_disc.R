@@ -7,14 +7,14 @@ library(car)
 set.seed(1)
 
 ## Configuration for data generation 
-N = 2000 # Number of data points 
+N = 500 # Number of data points 
 treatProb.male = 0.25
 treatProb.female = 0.75
 
 survProb.treatMale = 0.93
 survProb.treatFemale = 0.5
-survProb.nonTreatMale = 0.7
-survProb.nonTreatFemale = 0.35
+survProb.nonTreatMale = 0.8
+survProb.nonTreatFemale = 0.4
 
 # Step 1. Generate Z 
 ## In here, Z is D-dimensional multivariate normal random variable. 
