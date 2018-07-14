@@ -6,31 +6,51 @@
 # install.packages('SuperLearner')
 # install.packages(c("caret", "glmnet", "randomForest", "RhpcBLASctl", "xgboost", "gam"))
 
+min.mean.sd.max <- function(x) {
+  r <- c(min(x), mean(x) - sd(x), mean(x), mean(x) + sd(x), max(x))
+  names(r) <- c("ymin", "lower", "middle", "upper", "ymax")
+  r
+}
+
+
 # Step 1. Recall the data. Please refer the comment on data_generation.R 
-source('data_generation_M.R') 
+source('datagen/data_generation_simpson.R') 
 ## This generate 'data', 'dataX0' and 'dataX1' samples.
 ## Note 'data' is only available samples. 'dataX0' and 'dataX1' are hidden.  
 ### 'data' is observational (Y,X,Z)
 ### 'dataX0' is interventional (Y0, X0, Z). 
 ### 'dataX1' is interventional (Y1, X1, Z).
+eps = 1e-7
+Yobs_X0 = data[data$X==0, 1]
+Yobs_X1 = data[data$X==1, 1]
 
 Yobs = data[,1] # First column of 'data' is Y. 
 X = data[,2] # X variable in 'data'.
+X.noise = noiseAdd(X,eps,'X')
+
 Z = data[,-c(1,2)] # Z variables in 'data'. 
+Z.noise = noiseAdd(Z,eps,'Z')
 XZ = cbind(X,Z)
+XZ.noise = cbind(X.noise, Z.noise)
 
 # For validation purpose 
 Yx0 = dataX0[,1]
 Yx1 = dataX1[,1]
 
 X0 = matrix(rep(0,N),nrow=N) # N length of 0 vector
+X0.noise = noiseAdd(X0,eps,'X')
+
 X1 = matrix(rep(1,N),nrow=N) # N length of 1 vector
+X1.noise = noiseAdd(X1,eps,'X')
 
 N = dim(data)[1] # Number of samples. 
 X0 = matrix(rep(0,N),nrow=N) # N length of 0 vector.
 X1 = matrix(rep(1,N),nrow=N) # N length of 1 vector. 
 X0Z = cbind(X0,Z) # (X0, Z)
+X0Z.noise = cbind(X0.noise, Z.noise)
+
 X1Z = cbind(X1,Z) # (X1, Z).
+X1Z.noise = cbind(X1.noise,Z.noise)
 
 colnames(X0Z)[1] = 'X' # Matching the column name as XZ.
 colnames(X1Z)[1] = 'X' # Matching the column name as XZ.
@@ -45,8 +65,8 @@ listWrappers()
 ## Note that E[Y|x,z] = g(x,z) is a function of x and z. 
 ## If Y is discrete, that set family = binary(); 
 ## otherwise Y is continous, set family=gaussian()
-g_xz = SuperLearner(Y = c(Yobs), X = XZ, family = gaussian(), cvControl = list(V=10),
-                    SL.library = c("SL.randomForest"))
+g_xz = SuperLearner(Y = c(Yobs), X = XZ.noise, family = binomial(), cvControl = list(V=3),
+                    SL.library = c("SL.xgboost","SL.gam","SL.glm"))
 
 g_xz
 ## Note that g_xz is a model for g(x,z). 
@@ -54,12 +74,11 @@ g_xz
 
 # Step 2-2. Averaging g(x',z) over z, with fixed x'. 
 ## Estimate E[Y|X=0,z] and $E[Y|X=1,Z]. 
-hat_Yx0 = predict(g_xz, X0Z, onlySL=T)$pred # g(0,zi) for all i
-hat_Yx1 = predict(g_xz, X1Z, onlySL=T)$pred # g(1,zi) for all i 
+hat_Yx0 = predict(g_xz, X0Z.noise, onlySL=T)$pred # g(0,zi) for all i
+hat_Yx1 = predict(g_xz, X1Z.noise, onlySL=T)$pred # g(1,zi) for all i 
 
 # Step 2-3. Validation: averaging over sample, and compare with the true estimate 
-Yobs_X0 = data[data$X2==0, 1]
-Yobs_X1 = data[data$X2==1, 1]
+
 
 c(mean(Yx0),mean(Yx1)) # True (hidden)
 c(mean(hat_Yx0),mean(hat_Yx1)) # Regression-based estimate 
@@ -74,15 +93,15 @@ c(mean(Yobs_X0),mean(Yobs_X1))
 ## Note the resulting output of SuperLearner is P(X=1 | Z).
 ## As X is discrete, set 'family = binomial()'.
 Xobs = X
-ps_xz = SuperLearner(Y = X, X = Z, family = binomial(), cvControl = list(V=10),
-                     SL.library = c("SL.randomForest"))
+ps_xz = SuperLearner(Y = X, X = Z.noise, family = binomial(), cvControl = list(V=3),
+                     SL.library = c("SL.xgboost","SL.gam","SL.glm"))
 ps_xz
 c = 1e-8 # This is a small quantity added to P(X=1 | Z) for avoding 'dividing to 0' error.
 # c = 0
 ## P(X=0|Z)
-prop_scores_X0 = (1-predict(ps_xz, Z, onlySL = T)$pred) + c # P(X=0|Z)
+prop_scores_X0 = (1-predict(ps_xz, Z.noise, onlySL = T)$pred) + c # P(X=0|Z)
 ## P(X=1|Z)
-prop_scores_X1 = predict(ps_xz, Z, onlySL = T)$pred + c # P(X=1|Z)
+prop_scores_X1 = predict(ps_xz, Z.noise, onlySL = T)$pred + c # P(X=1|Z)
 
 # Step 2-2. Re-weight Y by inverse probabiltiy (inverse of propensity score).
 ## For binary X, the indicator that X=0, denoted as I(X=0), is equivalent to 1-X.
@@ -158,6 +177,8 @@ result_table <- data.frame(true = c(mean(Yx0),mean(Yx1)),
 result_table
 
 result_table_var <- data.frame(
+  true = c(var(Yx0),var(Yx1)),
+  obs = c(var(Yobs_X0),var(Yobs_X1)),
   regressed = c(var(hat_Yx0),var(hat_Yx1)),
   IPW  = c(var(Y_reweighted_X0),var(Y_reweighted_X1)),
   AIPW = c(var(Y_AIPW_X0),var(Y_AIPW_X1)),
@@ -174,9 +195,12 @@ result_table_var
 library(ggplot2)
 
 ## Step 3-2. Encode data with (X,Yx).
-Y_AIPW_plot = data.frame(cbind(rbind(X0,X1),rbind(Y_AIPW_X0, Y_AIPW_X1)))
-colnames(Y_AIPW_plot) =c('X','Yx')
-Y_AIPW_plot$X = factor(Y_AIPW_plot$X,labels=c("X0","X1"))
+# Y_AIPW_X0 = Y_TMLE_X0
+# Y_AIPW_X1 = Y_TMLE_X1
+
+Y_TMLE_plot = data.frame(cbind(rbind(X0,X1),rbind(Y_TMLE_X0, Y_TMLE_X1)))
+colnames(Y_TMLE_plot) =c('X','Yx')
+Y_TMLE_plot$X = factor(Y_TMLE_plot$X,labels=c("X0","X1"))
 
 ## Step 3-3. Draw a boxplot
 ### Refer: http://t-redactyl.io/blog/2016/04/creating-plots-in-r-using-ggplot2-part-10-boxplots.html
@@ -184,15 +208,19 @@ Y_AIPW_plot$X = factor(Y_AIPW_plot$X,labels=c("X0","X1"))
 #### colored box plot
 fill <- "#56B4E9"
 line <- "#1F3552"
-bp = ggplot(Y_AIPW_plot, aes(x = X, y = Yx)) +geom_boxplot()
-bp = ggplot(Y_AIPW_plot, aes(x = X, y = Yx)) + geom_boxplot(fill = fill, colour = line, alpha = 0.7,
-             outlier.colour = "#1F3552", outlier.shape = 20)
+bp = ggplot(Y_TMLE_plot, aes(x = X, y = Yx)) + 
+  stat_summary(fun.data = min.mean.sd.max, geom = "boxplot", fill=fill, colour=line,
+               outlier.colour = "#1F3552", outlier.shape = 20)
+# bp =ggplot(Y_TMLE_plot, aes(x = X, y = Yx)) + geom_boxplot()
+# bp = ggplot(Y_TMLE_plot, aes(x = X, y = Yx)) + geom_boxplot(fill = fill, colour = line, alpha = 0.7,
+#              outlier.colour = "#1F3552", outlier.shape = 20)
 #### Customize X-axis and Y-axis
-Y_AIPW_plot_005 = quantile(Y_AIPW_plot$Yx, probs = 0.05)
-Y_AIPW_plot_095 = quantile(Y_AIPW_plot$Yx, probs = 0.95)
+Y_TMLE_plot_005 = quantile(Y_TMLE_plot$Yx, probs = 0.05)
+Y_TMLE_plot_095 = quantile(Y_TMLE_plot$Yx, probs = 0.95)
 
 
-bp = bp + scale_x_discrete(name = "X=x") + scale_y_continuous(name = "E[Y|do(x)]", limits=c(min(Yobs), A=max(Yobs)))
+bp = bp + scale_x_discrete(name = "X=x") + scale_y_continuous(name = "E[Y|do(x)]")
+bp = bp + coord_cartesian(ylim=c(0,1))
 #### Customize axis-tick
 #### Adding title
 bp = bp + ggtitle("Causal Effect E[Y|do(x)]")
@@ -214,15 +242,19 @@ bp = bp +   theme(axis.line.x = element_line(size = 0.5, colour = "black"),
 ## Y | X=x
 ## X2 is an index representing for X.
 ## In data matrix, the first column is Y
-Yobs_X0 = data[data$X2==0, 1]
-Yobs_X1 = data[data$X2==1, 1]
+Yobs_X0 = data[data$X==0, 1]
+Yobs_X1 = data[data$X==1, 1]
 
-Yobs_plot = data.frame(cbind(data$X2,data$X1))
+Yobs_plot = data.frame(cbind(data$Y,data$X))
 colnames(Yobs_plot) =c('X','Yobs')
 Yobs_plot$X = factor(Yobs_plot$X,labels=c("X0","X1"))
-bpobs = ggplot(Yobs_plot, aes(x = X, y = Yobs)) + geom_boxplot(fill = fill, colour = line, alpha = 0.7,
-                                                            outlier.colour = "#1F3552", outlier.shape = 20)
-bpobs = bpobs + scale_x_discrete(name = "X=x") + scale_y_continuous(name = "E[Y|x]",limits=c(min(Yobs), A=max(Yobs)))
+bpobs = ggplot(Yobs_plot, aes(x = X, y = Yobs)) + 
+  stat_summary(fun.data = min.mean.sd.max, geom = "boxplot", fill=fill, colour=line,
+               outlier.colour = "#1F3552", outlier.shape = 20)
+bpobs = bpobs + coord_cartesian(ylim=c(0,1))
+# bpobs = ggplot(Yobs_plot, aes(x = X, y = Yobs)) + geom_boxplot(fill = fill, colour = line, alpha = 0.7,
+#                                                             outlier.colour = "#1F3552", outlier.shape = 20)
+bpobs = bpobs + scale_x_discrete(name = "X=x") + scale_y_continuous(name = "E[Y|x]")
 bpobs = bpobs + ggtitle("Observational Effect E[Y|x]")
 bpobs = bpobs + theme_bw()
 bpobs = bpobs +   theme(axis.line.x = element_line(size = 0.5, colour = "black"),
@@ -239,4 +271,6 @@ bpobs = bpobs +   theme(axis.line.x = element_line(size = 0.5, colour = "black")
 library("gridExtra")
 grid.arrange(arrangeGrob(bp,bpobs,nrow=1))
 result_table
+
+
 

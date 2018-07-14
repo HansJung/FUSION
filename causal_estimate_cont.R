@@ -83,9 +83,9 @@ spline_estimator <- function(data,n) {
 # Confidence interval of spline 
 spline_CI <- function(data,n,B,alpha) {
   spline_main = spline_estimator(data,n)
-  spline_boots = replicate(B,spline_estimator(resampler(data),n))
-  cis_lower = 2*spline_main - apply(spline_boots,1,quantile,probs=1-alpha/2)
-  cis_upper <- 2*spline_main - apply(spline_boots,1,quantile,probs=alpha/2)
+  spline_boots = replicate(B,spline_estimator(resampler(data),n)) # Column are repeated // Spline_estimator are repeated for each 'column' not 'row'
+  cis_lower = 2*spline_main - apply(spline_boots,1,quantile,probs=1-alpha/2) # 2X - (X*0.)
+  cis_upper = 2*spline_main - apply(spline_boots,1,quantile,probs=alpha/2)
   return(list(main.curve=spline_main,lower.ci=cis_lower,upper.ci=cis_upper,
               x=seq(from=min(data[,1]),to=max(data[,1]),length.out=n)))
 }
