@@ -63,14 +63,6 @@ fY = function(Z,X,N,survProb.treatMale,survProb.nonTreatMale, survProb.treatFema
   return(Y)
 }
 
-noiseAdd = function(X,eps=1e-8,myColName){
-  N = length(X)
-  X = X + eps*rnorm(N)
-  X = data.frame(X)
-  colnames(X) = myColName
-  return(X)
-}
-
 Z = fZ(N)
 X = fX(Z,N,treatProb.male, treatProb.female)
 Y = fY(Z,X,N,survProb.treatMale,survProb.nonTreatMale, survProb.treatFemale, survProb.nonTreatFemale)

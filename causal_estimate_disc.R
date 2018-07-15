@@ -7,10 +7,22 @@ library(cowplot)
 library(grid)
 
 # Seperating data frame into Y,X,Z,XZ
-noiseAdd = function(X,eps=1e-8,myColName){
-  N = length(X)
-  X = X + eps*rnorm(N)
+## Small noise are added for smoothing over the discrete value 
+noiseAdd = function(X,eps=1e-8){
+  disc.criterion = 10 
   X = data.frame(X)
+  if ((length(unique(X))) > disc.criterion ){
+    return(X)
+  }
+  else{
+    N = length(X)
+    X = X + eps*rnorm(N)
+    X = data.frame(X)
+    return(X)  
+  }
+}
+
+setColname = function(X, myColName){
   colnames(X) = myColName
   return(X)
 }
@@ -25,8 +37,10 @@ sepData = function(DF){
 
 noiseSepData = function(DF,eps=1e-8){
   Yobs = DF[,1]
-  X.noise = noiseAdd(X,eps,'X')
-  Z.noise = noiseAdd(Z,eps,'Z')
+  X = DF[,2]
+  Z = DF[,-c(1,2)]
+  X.noise = noiseAdd(X,eps)
+  Z.noise = noiseAdd(Z,eps)
   XZ.noise = cbind(X.noise, Z.noise)
   return(list(Yobs,X.noise,Z.noise,XZ.noise))
 }
@@ -34,18 +48,18 @@ noiseSepData = function(DF,eps=1e-8){
 intvData = function(X,eps,do.val){
   if (do.val == 0){
     X = matrix(rep(0,N),nrow=N) # N length of 0 vector
-    X.noise = noiseAdd(X,eps,'X')
+    X.noise = noiseAdd(X,eps)
   }
   else if (do.val==1){
     X = matrix(rep(1,N),nrow=N) # N length of 0 vector
-    X.noise = noiseAdd(X,eps,'X')
+    X.noise = noiseAdd(X,eps)
   }
   return(X)
 }
 
 intvSepData = function(X,Z,eps,do.val){
   X = intvData(X,eps,do.val)
-  Z = noiseAdd(Z,eps,'Z')
+  Z = noiseAdd(Z,eps)
   return(cbind(X,Z))
 }
 
@@ -147,7 +161,7 @@ tableConstruction = function(Yx0,Yx1,Yobs_X0,Yobs_X1,regress_Yx0,
   return(list(result_table_mean,result_table_sd))
 }
 
-plotCausal = function(X0, X1,tmle_Yx0, tmle_Yx1){
+plotCausal = function(X0, X1,tmle_Yx0, tmle_Yx1, ylim_min, ylim_max){
   fill <- "#56B4E9"
   line <- "#1F3552"
   
@@ -163,7 +177,7 @@ plotCausal = function(X0, X1,tmle_Yx0, tmle_Yx1){
                  outlier.colour = "#1F3552", outlier.shape = 20)
   
   bp = bp + scale_x_discrete(name = "X=x") + scale_y_continuous(name = "E[Y|do(x)]")
-  bp = bp + coord_cartesian(ylim=c(0,1))
+  bp = bp + coord_cartesian(ylim=c(ylim_min,ylim_max))
   #### Customize axis-tick
   #### Adding title
   bp = bp + ggtitle("Causal Effect")
@@ -181,19 +195,17 @@ plotCausal = function(X0, X1,tmle_Yx0, tmle_Yx1){
   return(bp) 
 }
 
-plotObs = function(data){
+plotObs = function(X, Y, ylim_min, ylim_max){
   fill <- "#56B4E9"
   line <- "#1F3552"
   
-  Yobs_plot = data.frame(cbind(data$Y,data$X))
+  Yobs_plot = data.frame(cbind(Y,X))
   colnames(Yobs_plot) =c('X','Yobs')
   Yobs_plot$X = factor(Yobs_plot$X,labels=c("X0","X1"))
   bpobs = ggplot(Yobs_plot, aes(x = X, y = Yobs)) + 
     stat_summary(fun.data = min.mean.sd.max, geom = "boxplot", fill=fill, colour=line,
                  outlier.colour = "#1F3552", outlier.shape = 20)
   bpobs = bpobs + coord_cartesian(ylim=c(0,1))
-  # bpobs = ggplot(Yobs_plot, aes(x = X, y = Yobs)) + geom_boxplot(fill = fill, colour = line, alpha = 0.7,
-  #                                                             outlier.colour = "#1F3552", outlier.shape = 20)
   bpobs = bpobs + scale_x_discrete(name = "X=x") + scale_y_continuous(name = "E[Y|x]")
   bpobs = bpobs + ggtitle("Observational Effect E[Y|x]")
   bpobs = bpobs + theme_bw()
@@ -207,6 +219,20 @@ plotObs = function(data){
   )
   return(bpobs)
   }
+
+drawHistogram = function(X,Y,mybinwidth){
+  df1 = data.frame(X,Y)
+  mytheme = theme(axis.line.x = element_line(size = 0.5, colour = "black"),
+                  axis.line.y = element_line(size = 0.5, colour = "black"),
+                  axis.title.x= element_blank(),
+                  axis.line = element_line(size=1, colour = "black"),
+                  panel.border = element_blank(),
+                  panel.background = element_blank(),
+                  plot.title=element_text(size = 20))
+  hist_X = ggplot(df1, aes(x=X)) + geom_histogram(binwidth = mybinwidth, fill='#FF9999', colour='black') + scale_y_reverse() + mytheme
+  hist_X = hist_X + scale_x_continuous(position='top')
+  return(hist_X)
+}
 
 mergePlot = function(gg1,gg2,vert_hori){
   grid.newpage()
@@ -231,10 +257,14 @@ min.mean.sd.max <- function(x) {
 
 ####################### MAIN ############################
 # Data generation 
-source('datagen/data_generation_simpson.R') 
+source('datagen/data_generation_simpson_disc.R') 
 eps = 1e-8
 resultSep = sepData(data)
 Yobs = resultSep[[1]]
+
+ylim_min = min(Yobs)
+ylim_max = max(Yobs)
+
 X = resultSep[[2]]
 Z = resultSep[[3]]
 XZ = resultSep[[4]]
@@ -244,17 +274,16 @@ X.noise = resultNoiseSep[[2]]
 Z.noise = resultNoiseSep[[3]]
 XZ.noise = resultNoiseSep[[4]]
 
-X0Z.noise = intvSepData(data$X,data$Z,eps,do.val=0)
-X1Z.noise = intvSepData(data$X,data$Z,eps,do.val=1)
+# X0Z.noise = intvSepData(data$X,data$Z,eps,do.val=0)
+# X1Z.noise = intvSepData(data$X,data$Z,eps,do.val=1)
 
-# For validation purpose 
-Yx0 = dataX0[,1]
-Yx1 = dataX1[,1]
+X0Z.noise = intvSepData(X,Z,eps,do.val=0)
+X1Z.noise = intvSepData(X,Z,eps,do.val=1)
 
 numFold = 3
 
-g_xz = trainSL(c(Yobs),XZ.noise,'disc',numFold) # E[Y|x,z]
-ps_xz = trainSL(c(X),X=Z.noise,'disc',numFold) # P(X|z)
+g_xz = trainSL(c(Yobs),XZ.noise,'cont',numFold) # E[Y|x,z]
+ps_xz = trainSL(c(X),X=Z.noise,'cont',numFold) # P(X|z)
 
 # True 
 Yx0 = dataX0[,1]
@@ -289,10 +318,16 @@ resultTable = tableConstruction(Yx0,Yx1,Yobs_X0,Yobs_X1,regress_Yx0,
 resultTable.mean = resultTable[[1]]
 resultTable.sd = resultTable[[2]]
 
-bp = plotCausal(X0, X1,tmle_Yx0, tmle_Yx1)
-bpobs = plotObs(data)
+bp = plotCausal(X0, X1,tmle_Yx0, tmle_Yx1,ylim_min,ylim_max)
+bpobs = plotObs(Yobs,X,ylim_min,ylim_max)
 
-gg = mergePlot(bp,bpobs,'hori')
+mybinwidth = max(1/length(unique(X)),0.1)
+histX = drawHistogram(X,Y,mybinwidth)
+histX.intv = drawHistogram(rbind(X0,X1),rbind(Y,Y),mybinwidth)
+
+gg_bp = mergePlot(bp,bpobs,'hori')
+gg_hist = mergePlot(histX.intv,histX,'hori')
+gg = mergePlot(gg_bp,gg_hist,'vert')
 gg
 resultTable.mean
 resultTable.sd

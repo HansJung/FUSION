@@ -45,12 +45,12 @@ reducedX = function(X, cutN = 100){
 }
 
 # Generate Y|do(X), where X are randomly sampled. 
-sampleIntvEst = function(trainModel, sample_X, Z, cutN = 100, N){
+  sampleIntvEst = function(trainModel, sample_X, Z, cutN = 100, N){
   Yhat_intv = rep(0, cutN)
   for (idx in 1:cutN){
     xi = sample_X[idx] # For each sample xi 
     xi_mat = matrix(rep(xi,N),nrow=N) # N length of xi vector
-    XZi = cbind(xi_mat, Z) # Matrix such that jth row is (xi, zj) for all j
+    XZi = data.frame(cbind(xi_mat, Z)) # Matrix such that jth row is (xi, zj) for all j
     colnames(XZi)[1] = 'X' # Change the column name to match
     Yhat_intv[idx] = mean(sampleEst(g_xz, XZi)) # Average(E[Y|X=xi,Z]  ), which is causal mean estimate
   }
@@ -126,7 +126,7 @@ twoPlotResult = function(X,Y_intv,Y_obs,quant_X,n, B, alpha, color1, color2){
   gg1 = gg1 + geom_ribbon(data=df3_obs, aes(x=x, ymin=ymin, ymax=ymax),alpha=0.4, fill=color2)
 
   gg1 = gg1 + theme_bw()
-  gg1 = gg1 + scale_x_continuous(name = "X=x") + scale_y_continuous(name = "Estimated Y",limits=c(min(Y), A=max(Y)))
+  gg1 = gg1 + scale_x_continuous(name = "X=x",limits=c(min(X),A=max(X)),breaks =seq(0,1,length=10) ) + scale_y_continuous(name = "Estimated Y",limits=c(min(Y), A=max(Y)))
   gg1 = gg1 + theme(axis.line.x = element_line(size = 0.5, colour = "black"),
                     axis.line.y = element_line(size = 0.5, colour = "black"),
                     axis.line = element_line(size=1, colour = "black"),
@@ -151,7 +151,7 @@ applyTheme = function(gg1, title){
   return(gg1)
 }
 
-drawHistogram = function(X,Y){
+drawHistogram = function(X,Y,mybinwidth){
   df1 = data.frame(X,Y)
   mytheme = theme(axis.line.x = element_line(size = 0.5, colour = "black"),
                   axis.line.y = element_line(size = 0.5, colour = "black"),
@@ -160,8 +160,8 @@ drawHistogram = function(X,Y){
                   panel.border = element_blank(),
                   panel.background = element_blank(),
                   plot.title=element_text(size = 20))
-  hist_X = ggplot(df1, aes(x=X)) + geom_histogram(binwidth = 0.1, fill='#FF9999', colour='black') + scale_y_reverse() + mytheme
-  hist_X = hist_X + scale_x_continuous(position='top')
+  hist_X = ggplot(df1, aes(x=X)) + geom_histogram(binwidth = mybinwidth, fill='#FF9999', colour='black') + scale_y_reverse() + mytheme
+  hist_X = hist_X + scale_x_continuous(position='top',limits=c(min(X),A=max(X)))
   return(hist_X)
 }
 
@@ -180,8 +180,10 @@ mergePlot = function(gg1,gg2,vert_hori){
 
 ################## MAIN ##################
 # Data generation 
-source('datagen/data_generation_cano1_cont.R') 
-
+# source('datagen/data_generation_cano1_cont.R')
+# source('datagen/data_generation_simpson_cont.R') 
+source('datagen/data_generation_simpson_cont.R')
+data_obs = data 
 result_sep = sepData(data_obs)
 Yobs = result_sep[[1]] 
 X = result_sep[[2]]
@@ -213,9 +215,12 @@ spline_main = spline_estimator(data,n)
 # Individual 
 gg_intv = indivPlotResult(sample_X,Yhat_intv,quant_X,n,B,alpha, color_intv)
 gg_intv = applyTheme(gg_intv,"Interventional")
-gg_obs = plotResult(sample_X, Yhat_obs,quant_X, n,B,alpha,color_obs)
+gg_obs = indivPlotResult(sample_X, Yhat_obs,quant_X, n,B,alpha,color_obs)
 gg_obs= applyTheme(gg_obs, "Observational")
-histX = drawHistogram(X,Y)
+
+mybinwidth = max(1/length(unique(X)),0.2)
+histX = drawHistogram(X,Y,mybinwidth)
+histX.intv = drawHistogram(X_intv,Y,mybinwidth)
 
 gg_merged1 = mergePlot(gg_intv,histX,'vert')
 gg_merged2 = mergePlot(gg_obs,histX,'vert')
@@ -223,10 +228,13 @@ gg_merged_indiv = mergePlot(gg_merged1,gg_merged2,'hori')
 
 # Merged into one plot 
 gg_intv = indivPlotResult(sample_X,Yhat_intv,quant_X,n,B,alpha, color_intv)
-gg_obs = plotResult(sample_X, Yhat_obs,quant_X, n,B,alpha,color_obs)
+gg_obs = indivPlotResult(sample_X, Yhat_obs,quant_X, n,B,alpha,color_obs)
 gg_merged = twoPlotResult(sample_X,Yhat_intv,Yhat_obs,quant_X,n,B,alpha,color_intv, color_obs)
 gg_merged = applyTheme(gg_merged,'Merged')
 gg_merged = mergePlot(gg_merged,histX,'vert')
 
+gg_merged
 
+# grid.newpage()
+# grid.draw(rbind(ggplotGrob(gg_merged), ggplotGrob(histX), size = "last"))
 

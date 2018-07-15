@@ -10,8 +10,8 @@ library(car)
 set.seed(1)
 
 ## Configuration for data generation 
-N = 2000 # Number of data points 
-D = 2 # Dimension of the confounding variable Z 
+N = 1000 # Number of data points 
+D = 5 # Dimension of the confounding variable Z 
 
 # Step 1. Generate Z 
 ## In here, Z is D-dimensional multivariate normal random variable. 

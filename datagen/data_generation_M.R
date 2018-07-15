@@ -43,34 +43,35 @@ muX = 1*rnorm(1) # Set mu random.
 sigmaX = abs(1*rnorm(1)) + runif(1)
 X = sqrt(exp(Z1)) - log(abs(Z4)) - abs(Z1 + Z4) + mvrnorm(N, muX, sigmaX)
 X = exp(X)/(1+exp(X))
+X = round(X)
 # X = round(X)
-
-mean_X = mean(X)
-Q1 = quantile(X)[2]
-Q3 = quantile(X)[4]
-
-X_box = c()
-for (idx in (1:length(X))){
-  xi = X[idx]
-  if (xi > mean_X){
-    if (abs(mean_X - xi) < abs(Q3 - xi) ){
-      X_box = c(X_box, mean_X)
-    }
-    else{
-      X_box = c(X_box, Q3)
-    }
-  }
-  else{
-    if (abs(mean_X - xi) < abs(Q1 - xi) ){
-      X_box = c(X_box, mean_X)
-    }
-    else{
-      X_box = c(X_box, Q1)
-    }
-  }
-}
-
-X = X_box
+# 
+# mean_X = mean(X)
+# Q1 = quantile(X)[2]
+# Q3 = quantile(X)[4]
+# 
+# X_box = c()
+# for (idx in (1:length(X))){
+#   xi = X[idx]
+#   if (xi > mean_X){
+#     if (abs(mean_X - xi) < abs(Q3 - xi) ){
+#       X_box = c(X_box, mean_X)
+#     }
+#     else{
+#       X_box = c(X_box, Q3)
+#     }
+#   }
+#   else{
+#     if (abs(mean_X - xi) < abs(Q1 - xi) ){
+#       X_box = c(X_box, mean_X)
+#     }
+#     else{
+#       X_box = c(X_box, Q1)
+#     }
+#   }
+# }
+# 
+# X = X_box
 
 # Step 4. Generate Y
 ## (Z3, Z5, X) -> Y
@@ -97,5 +98,5 @@ Y1 = exp(Y1)/(exp(Y1)+1)
 data = data.frame(cbind(Y,X,Z1,Z2,Z3,Z4,Z5)) # Observational 
 
 ### Intervened data (Y0,X0,Z) and (Y1,X1,Z)
-dataX0 = data.frame(cbind(Y0,X0,Z1,Z2,Z3,Z4,Z5)) # Experimental when X=0
-dataX1 = data.frame(cbind(Y1,X1,Z1,Z2,Z3,Z4,Z5)) # Experimental when X=1
+# dataX0 = data.frame(cbind(Y0,X0,Z1,Z2,Z3,Z4,Z5)) # Experimental when X=0
+# dataX1 = data.frame(cbind(Y1,X1,Z1,Z2,Z3,Z4,Z5)) # Experimental when X=1
