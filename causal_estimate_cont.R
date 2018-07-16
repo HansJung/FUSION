@@ -324,23 +324,23 @@ alpha = 0.01 # Confidence interval (100-alpha)%
 color_intv = "red"
 color_obs = "blue"
 
-# Individual 
-gg_intv = indivPlotResult(sample_X,Yhat_intv,quant_X,n,B,alpha, color_intv)
-gg_intv = applyTheme(gg_intv,"Interventional")
-gg_obs = indivPlotResult(sample_X, Yhat_obs,quant_X, n,B,alpha,color_obs)
-gg_obs= applyTheme(gg_obs, "Observational")
+# Plot drawoing 
+## Two individiaul plots side by side 
+gg_intv = indivPlotResult(sample_X,Yhat_intv,quant_X,n,B,alpha, color_intv) # individual plot: E[Y|do(x)]
+gg_intv = applyTheme(gg_intv,"Interventional") # theme applied for prettier visualization  
+gg_obs = indivPlotResult(sample_X, Yhat_obs,quant_X, n,B,alpha,color_obs) # individual plot: E[Y|x]
+gg_obs= applyTheme(gg_obs, "Observational") # theme applied for prettier visualization  
 
-mybinwidth = max(1/length(unique(X)),0.2)
-histX = drawHistogram(X,Y,mybinwidth)
-histX.intv = drawHistogram(X_intv,Y,mybinwidth)
+mybinwidth = max(1/length(unique(X)),0.2) # binwidth for histogram. If X is binary (0,1), then width = 0.5
+histX = drawHistogram(X,Y,mybinwidth) # histogram for X_obs
+histX.intv = drawHistogram(X_intv,Y,mybinwidth) # histogram for X_intv
 
-gg_merged1 = mergePlot(gg_intv,histX,'vert')
-gg_merged2 = mergePlot(gg_obs,histX,'vert')
-gg_merged_indiv = mergePlot(gg_merged1,gg_merged2,'hori')
+gg_merged1 = mergePlot(gg_intv,histX.intv,'vert') # gg_intv and histX.intv are vertically merged
+gg_merged2 = mergePlot(gg_obs,histX,'vert') # gg_obs and histX are vertically merged
+gg_merged_indiv = mergePlot(gg_merged1,gg_merged2,'hori') # gg_merged1 and gg_merged2 are horizontally merged (side-by-side)
+gg_merged_indiv
 
-# Merged into one plot 
-gg_intv = indivPlotResult(sample_X,Yhat_intv,quant_X,n,B,alpha, color_intv)
-gg_obs = indivPlotResult(sample_X, Yhat_obs,quant_X, n,B,alpha,color_obs)
+## two spline curves (E[Y|do(x)], E[Y|x]) on one plot side by side 
 gg_merged = twoPlotResult(sample_X,Yhat_intv,Yhat_obs,quant_X,n,B,alpha,color_intv, color_obs)
 gg_merged = applyTheme(gg_merged,'Merged')
 gg_merged = mergePlot(gg_merged,histX,'vert')
