@@ -260,7 +260,7 @@ applyTheme = function(gg1, title){
   return(gg1)
 }
 
-drawHistogram = function(X,Y,mybinwidth){
+drawHistogram = function(X,Y,mybinwidth, mycolor){
   # Role: draw histogram for X-axis
   # Histogram using (X,Y) pair. 
   
@@ -272,7 +272,7 @@ drawHistogram = function(X,Y,mybinwidth){
                   panel.border = element_blank(),
                   panel.background = element_blank(),
                   plot.title=element_text(size = 20))
-  hist_X = ggplot(df1, aes(x=X)) + geom_histogram(binwidth = mybinwidth, fill='#FF9999', colour='black') + scale_y_reverse() + mytheme
+  hist_X = ggplot(df1, aes(x=X)) + geom_histogram(binwidth = mybinwidth, fill=mycolor, colour='black') + scale_y_reverse() + mytheme
   hist_X = hist_X + scale_x_continuous(position='top',limits=c(min(X),A=max(X)))
   return(hist_X)
 }
@@ -332,8 +332,8 @@ gg_obs = indivPlotResult(sample_X, Yhat_obs,quant_X, n,B,alpha,color_obs) # indi
 gg_obs= applyTheme(gg_obs, "Observational") # theme applied for prettier visualization  
 
 mybinwidth = max(1/length(unique(X)),0.2) # binwidth for histogram. If X is binary (0,1), then width = 0.5
-histX = drawHistogram(X,Y,mybinwidth) # histogram for X_obs
-histX.intv = drawHistogram(X_intv,Y,mybinwidth) # histogram for X_intv
+histX = drawHistogram(X,Y,mybinwidth,'blue') # histogram for X_obs
+histX.intv = drawHistogram(X_intv,Y,mybinwidth,'#FF9999') # histogram for X_intv
 
 gg_merged1 = mergePlot(gg_intv,histX.intv,'vert') # gg_intv and histX.intv are vertically merged
 gg_merged2 = mergePlot(gg_obs,histX,'vert') # gg_obs and histX are vertically merged

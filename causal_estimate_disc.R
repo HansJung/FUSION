@@ -257,7 +257,7 @@ min.mean.sd.max <- function(x) {
 
 ####################### MAIN ############################
 # Data generation 
-source('datagen/data_generation_simpson_disc.R') 
+source('datagen/data_generation_M.R') 
 eps = 1e-8
 resultSep = sepData(data)
 Yobs = resultSep[[1]]

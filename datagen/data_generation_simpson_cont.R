@@ -45,6 +45,7 @@ fY = function(Z,X,N){
     else if (zi == 0){
       yi = rnorm(1,10-(zi+1)*(xi),2) 
     }
+    yi = round( exp(yi)/(1+exp(yi)) ) # test 
     Y = c(Y,yi)
   }
   return(Y)
