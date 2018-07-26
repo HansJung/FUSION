@@ -8,12 +8,14 @@ library(cowplot)
 ################## Introduction ##################
 
 # This code assumes the following,
-# 1. Z is 1 dimensional (1D)
+# 0. X is binary (X=0,1).
+# 1. Z is 1 dimensional (1D) // Multivariate version will be implemented 
 # 2. Z is either continuous or discrete 
 # 3. If unique(Z) > 2, then consider it as continuous. 
 
 
 ################## Functions  ##################
+# Extract (X,Z) from data frame with (Y,X,Z)
 extractXZ = function(df){
   # Input: data frame (Y,X,Z)
   # Output: (X,Z) // X is a vector, but Z is a data frame. 
@@ -69,11 +71,11 @@ min.mean.sd.max <- function(x) {
   # Extract min, mean-sd, mean, mean+sd, max 
   r <- c(min(x), mean(x) - sd(x), mean(x), mean(x) + sd(x), max(x))
   names(r) <- c("ymin", "lower", "middle", "upper", "ymax")
-  r
+  return(r)
 }
 
+# Draw a box plot (using mean and vairance) if Z is discrete. 
 drawBoxPlot = function(dfXZ, unique_Z){
-  # Currently assume Z is binary 
   dfXZ.X.Z1 = dfXZ[dfXZ[2]==unique_Z[1],1]
   dfXZ.X.Z2 = dfXZ[dfXZ[2]==unique_Z[2],1]
   
@@ -90,6 +92,20 @@ drawBoxPlot = function(dfXZ, unique_Z){
   gg1 = gg1 + stat_summary(fun.data = min.mean.sd.max, geom = "boxplot", fill=fill, colour=line,
                                  outlier.colour = "#1F3552", outlier.shape = 20)
   return(gg1)
+}
+
+# Draw a spline plot if Z is continuous. 
+drawSpilnePlot = function(Z,px.z.prediction){
+  # Input: Z, P(X=1|Z=zi), for i=1,2,...,N
+  # Output: plot
+  df.plot = data.frame(Z,px.z.prediction)
+  colnames(df.plot)[1] = 'z'
+  colnames(df.plot)[2] = 'ps'
+  
+  gg = ggplot(data=df.plot,aes(z,ps)) +
+    geom_point(size=1.5,color='red') +
+    geom_line(data=data.frame(spline(df.plot,n=50)),aes(x,y), color='red')
+  return(gg)
 }
 
 applyTheme = function(gg1, title,TF_discZ){
@@ -118,75 +134,35 @@ applyTheme = function(gg1, title,TF_discZ){
 
 ################## MAIN ##################
 
-# Load data 
-source('datagen/data_generation_simpson_disc.R')
-# source('datagen/data_generation_M.R')
+# Step 1. Load data 
+# source('datagen/data_generation_simpson_disc.R') # Z 1D, discrete
+source('datagen/data_generation_contZ_1D.R') # Z 1D, continuous
 
+# Step 2. Extract XZ from data frame (Y,X,Z)
 XZ = extractXZ(data)
 X = XZ[[1]]
 Z = XZ[[2]]
-dfXZ = data.frame(X,Z)
+dfXZ = data.frame(X,Z) 
 
-dimZ(Z) # Check that dimension of Z is 1 
-discCheckZ(Z) # Check whether Z is discrete or Not. Fo 
+dimZ(Z) # Check that dimension of Z (in this example, dim(Z) must be 1)
+discCheckZ(Z) # Check whether Z is discrete or Not.
 
-# Z is in 1D 
-## Z is discrete 
-unique_Z = unique(Z)[,1]
-# prop_score_zval = rep(0,length(unique_Z))
-# idx = 1
-# for (z_idx in 1:length(unique_Z)){
-#   z_val = unique_Z[z_idx]
-#   p.x1.zval = mean(dfXZ[dfXZ[2]==z_val,1])
-#   prop_score_zval[idx] = p.x1.zval
-#   idx = idx + 1 
-# }
-
-g_disc = drawBoxPlot(dfXZ, unique_Z)
-g_disc = applyTheme(g_disc,"Propensity score",discCheckZ(Z))
-g_disc 
-
-# dfXZ.X.Z1 = dfXZ[dfXZ[2]==unique_Z[1],1]
-# dfXZ.X.Z2 = dfXZ[dfXZ[2]==unique_Z[2],1]
-# 
-# groupZ = rep(1:2,c(length(dfXZ.X.Z1),length(dfXZ.X.Z2)))
-# groupZ = factor(groupZ,labels=c('Z1','Z2'))
-# mydata = data.frame(c(dfXZ.X.Z1,dfXZ.X.Z2), groupZ)
-# names(mydata) = c("value","group")
-# 
-# fill <- "#56B4E9"
-# line <- "#1F3552"
-# 
-# g_disc = ggplot(aes(y = value, x = factor(group)), data = mydata)
-# g_disc = g_disc + stat_summary(fun.data = min.mean.sd.max, geom = "boxplot", fill=fill, colour=line,
-#                                outlier.colour = "#1F3552", outlier.shape = 20)
+if (discCheckZ(Z) == TRUE){ # If Z is discrete 
+  unique_Z = unique(Z)[,1] # Unique value of Z
+  g_disc = drawBoxPlot(dfXZ, unique_Z) # Draw a box plot 
+  g_disc = applyTheme(g_disc,"Propensity score",discCheckZ(Z))
+  g_disc   
+}else{ # Z is continuous,
+  # Computing propensity score
+  px.z = trainSL(X,Z,'disc',5)
+  # obtain P(X=1|Z=zi) for each all i=1,2,...,N
+  px.z.prediction = predict(px.z,Z,onlySL = T)$pred
+  
+  # Draw a plot 
+  g_cont = drawSpilnePlot(Z,px.z.prediction) # Only a middle spline line without uncertainty shaded area. 
+  g_cont = applyTheme(g_cont,'Propensity score',discCheckZ(Z))
+  g_cont
+}
 
 
 
-
-# Z is continuous
-# source('datagen/data_generation_contZ_1D.R')
-# 
-# XZ = extractXZ(data)
-# X = XZ[[1]]
-# Z = XZ[[2]]
-# dfXZ = data.frame(X,Z)
-# 
-# dimZ(Z)
-# discCheckZ(Z)
-# 
-# # Computing propensity score 
-# px.z = trainSL(X,Z,'disc',5)
-# # obtain P(X=1|Z=zi) for each all i=1,2,...,N
-# px.z.prediction = predict(px.z,Z,onlySL = T)$pred
-# 
-# df.plot = data.frame(Z,px.z.prediction)
-# colnames(df.plot)[1] = 'z'
-# colnames(df.plot)[2] = 'ps'
-# 
-# g_cont = ggplot(data=df.plot,aes(z,ps)) +
-#   geom_point(size=1.5,color='red') +
-#   geom_line(data=data.frame(spline(df.plot,n=50)),aes(x,y), color='red')
-# 
-# g_cont = applyTheme(g_cont,'Propensity score',discCheckZ(Z))
-# g_cont
