@@ -10,10 +10,14 @@ library(cowplot)
 # This code assumes the following,
 # 1. Z is 1 dimensional (1D)
 # 2. Z is either continuous or discrete 
+# 3. If unique(Z) > 2, then consider it as continuous. 
 
 
 ################## Functions  ##################
 extractXZ = function(df){
+  # Input: data frame (Y,X,Z)
+  # Output: (X,Z) // X is a vector, but Z is a data frame. 
+  # From data frame, extract X and Z. 
   X = df[,2]
   Z = df[,-c(1,2)]
   if (is.null(dim(Z))){
@@ -23,13 +27,20 @@ extractXZ = function(df){
 }
 
 dimZ = function(Z){
+  # dimension of Z 
   return(ncol(Z))
 }
 
 discCheckZ = function(Z){
+  # Check whether Z is continuous or discrete. 
+  ## If unique(Z) > 2, then Z is continuous 
   discreteSwitch = TRUE 
-  for (colidx in 1:ncol(Z)){
-    zi = Z[,colidx]
+  
+  # In this function, Z is either 1D or higher. 
+  # Suppose Z is ncol(Z) dimensional. 
+  # Let Zi be i'th column of Z. 
+  for (colidx in 1:ncol(Z)){ # For each column of Z (Zi)
+    zi = Z[,colidx] # i'th dimensional 
     if (length(unique(zi)) > 2){
       discreteSwitch = FALSE 
       return(FALSE)
@@ -55,16 +66,44 @@ trainSL = function(Y,X,family, numFold){
 }
 
 min.mean.sd.max <- function(x) {
+  # Extract min, mean-sd, mean, mean+sd, max 
   r <- c(min(x), mean(x) - sd(x), mean(x), mean(x) + sd(x), max(x))
   names(r) <- c("ymin", "lower", "middle", "upper", "ymax")
   r
 }
 
-applyTheme = function(gg1, title){
+drawBoxPlot = function(dfXZ, unique_Z){
+  # Currently assume Z is binary 
+  dfXZ.X.Z1 = dfXZ[dfXZ[2]==unique_Z[1],1]
+  dfXZ.X.Z2 = dfXZ[dfXZ[2]==unique_Z[2],1]
+  
+  groupZ = rep(1:2,c(length(dfXZ.X.Z1),length(dfXZ.X.Z2)))
+  groupZ = factor(groupZ,labels=c('Z1','Z2'))
+  
+  mydata = data.frame(c(dfXZ.X.Z1,dfXZ.X.Z2), groupZ)
+  names(mydata) = c("value","group")
+  
+  fill <- "#56B4E9"
+  line <- "#1F3552"
+  
+  gg1 = ggplot(aes(y = value, x = factor(group)), data = mydata)
+  gg1 = gg1 + stat_summary(fun.data = min.mean.sd.max, geom = "boxplot", fill=fill, colour=line,
+                                 outlier.colour = "#1F3552", outlier.shape = 20)
+  return(gg1)
+}
+
+applyTheme = function(gg1, title,TF_discZ){
   # Apply theme
   gg1 = gg1 + ggtitle(title)
+  gg1 = gg1 + coord_cartesian(ylim=c(0,1))
   gg1 = gg1 + theme_bw()
-  gg1 = gg1 + scale_x_continuous(name = "Z=z") + scale_y_continuous(name = "P(X=1|Z=z)",limits=c(min(Y), A=max(Y)))
+  if (TF_discZ == FALSE){ # continuous Z 
+    gg1 = gg1 + scale_x_continuous(name = "Z=z") + scale_y_continuous(name = "P(X=1|Z=z)")  
+  }
+  else{
+    gg1 = gg1 + scale_x_discrete(name = "Z=z") + scale_y_continuous(name = "P(X=1|Z=z)")  
+  }
+  
   gg1 = gg1 + theme(axis.line.x = element_line(size = 0.5, colour = "black"),
                     axis.line.y = element_line(size = 0.5, colour = "black"),
                     axis.line = element_line(size=1, colour = "black"),
@@ -75,39 +114,7 @@ applyTheme = function(gg1, title){
   return(gg1)
 }
 
-# boxplot_discZ = function(Z0, Z1, px.z0, px.z1, ylim_min, ylim_max){
-#   fill <- "#56B4E9"
-#   line <- "#1F3552"
-#   
-#   merged_data = data.frame(cbind(rbind(Z0,Z1),rbind(px.z0, px.z1)))
-#   colnames(merged_data) =c('Z','prop_score')
-#   merged_data$Z = factor(merged_data$Z,labels=c("Z0","Z1"))
-#   
-#   merged_data_005 = quantile(merged_data$prop_score, probs = 0.05)
-#   merged_data_095 = quantile(merged_data$prop_score, probs = 0.95)
-#   
-#   bp = ggplot(merged_data, aes(x = Z, y = prop_score)) + 
-#     stat_summary(fun.data = min.mean.sd.max, geom = "boxplot", fill=fill, colour=line,
-#                  outlier.colour = "#1F3552", outlier.shape = 20)
-#   
-#   bp = bp + scale_x_discrete(name = "Z=z") + scale_y_continuous(name = "P(X=1|z)")
-#   bp = bp + coord_cartesian(ylim=c(ylim_min,ylim_max))
-#   #### Customize axis-tick
-#   #### Adding title
-#   bp = bp + ggtitle("Propensity scores")
-#   
-#   #### Using white theme
-#   bp = bp + theme_bw()
-#   bp = bp +   theme(axis.line.x = element_line(size = 0.5, colour = "black"),
-#                     axis.line.y = element_line(size = 0.5, colour = "black"),
-#                     axis.line = element_line(size=1, colour = "black"),
-#                     panel.border = element_blank(),
-#                     panel.background = element_blank(),
-#                     plot.title=element_text(size = 20),
-#                     text=element_text(size = 16)
-#   )
-#   return(bp) 
-# }
+
 
 ################## MAIN ##################
 
@@ -120,70 +127,66 @@ X = XZ[[1]]
 Z = XZ[[2]]
 dfXZ = data.frame(X,Z)
 
-dimZ(Z)
-discCheckZ(Z)
+dimZ(Z) # Check that dimension of Z is 1 
+discCheckZ(Z) # Check whether Z is discrete or Not. Fo 
 
 # Z is in 1D 
 ## Z is discrete 
 unique_Z = unique(Z)[,1]
-prop_score_zval = rep(0,length(unique_Z))
-idx = 1
-for (z_idx in 1:length(unique_Z)){
-  z_val = unique_Z[z_idx]
-  p.x1.zval = mean(dfXZ[dfXZ[2]==z_val,1])
-  prop_score_zval[idx] = p.x1.zval
-  idx = idx + 1 
-}
-dfXZ.X.Z1 = dfXZ[dfXZ[2]==unique_Z[1],1]
-dfXZ.X.Z2 = dfXZ[dfXZ[2]==unique_Z[2],1]
+# prop_score_zval = rep(0,length(unique_Z))
+# idx = 1
+# for (z_idx in 1:length(unique_Z)){
+#   z_val = unique_Z[z_idx]
+#   p.x1.zval = mean(dfXZ[dfXZ[2]==z_val,1])
+#   prop_score_zval[idx] = p.x1.zval
+#   idx = idx + 1 
+# }
 
-groupZ = rep(1:2,c(length(dfXZ.X.Z1),length(dfXZ.X.Z2)))
-groupZ = factor(groupZ,labels=c('Z1','Z2'))
-mydata = data.frame(c(dfXZ.X.Z1,dfXZ.X.Z2), groupZ)
-names(mydata) = c("value","group")
+g_disc = drawBoxPlot(dfXZ, unique_Z)
+g_disc = applyTheme(g_disc,"Propensity score",discCheckZ(Z))
+g_disc 
 
-fill <- "#56B4E9"
-line <- "#1F3552"
-
-g_disc = ggplot(aes(y = value, x = factor(group)), data = mydata)
-g_disc = g_disc + stat_summary(fun.data = min.mean.sd.max, geom = "boxplot", fill=fill, colour=line,
-                               outlier.colour = "#1F3552", outlier.shape = 20)
-g_disc = g_disc + coord_cartesian(ylim=c(0,1))
-g_disc = g_disc + scale_x_discrete(name = "Z=z") + scale_y_continuous(name = "P(X=1|z)")
-g_disc = g_disc + ggtitle("Propensity score when Z disc")
-g_disc = g_disc + theme_bw()
-g_disc = g_disc + theme(axis.line.x = element_line(size = 0.5, colour = "black"),
-                        axis.line.y = element_line(size = 0.5, colour = "black"),
-                        axis.line = element_line(size=1, colour = "black"),
-                        panel.border = element_blank(),
-                        panel.background = element_blank(),
-                        plot.title=element_text(size = 20),
-                        text=element_text(size = 16)
-)
-                        
+# dfXZ.X.Z1 = dfXZ[dfXZ[2]==unique_Z[1],1]
+# dfXZ.X.Z2 = dfXZ[dfXZ[2]==unique_Z[2],1]
+# 
+# groupZ = rep(1:2,c(length(dfXZ.X.Z1),length(dfXZ.X.Z2)))
+# groupZ = factor(groupZ,labels=c('Z1','Z2'))
+# mydata = data.frame(c(dfXZ.X.Z1,dfXZ.X.Z2), groupZ)
+# names(mydata) = c("value","group")
+# 
+# fill <- "#56B4E9"
+# line <- "#1F3552"
+# 
+# g_disc = ggplot(aes(y = value, x = factor(group)), data = mydata)
+# g_disc = g_disc + stat_summary(fun.data = min.mean.sd.max, geom = "boxplot", fill=fill, colour=line,
+#                                outlier.colour = "#1F3552", outlier.shape = 20)
 
 
-# Z is continuous 
-source('datagen/data_generation_contZ_1D.R')
 
-XZ = extractXZ(data)
-X = XZ[[1]]
-Z = XZ[[2]]
-dfXZ = data.frame(X,Z)
 
-dimZ(Z)
-discCheckZ(Z)
-
-px.z = trainSL(X,Z,'disc',5)
-px.z.prediction = predict(px.z,Z,onlySL = T)$pred
-
-df.plot = data.frame(Z,px.z.prediction)
-colnames(df.plot)[1] = 'z'
-colnames(df.plot)[2] = 'ps'
-
-g_cont = ggplot(data=df.plot,aes(z,ps)) + 
-  geom_point(size=1.5,color='red') + 
-  geom_line(data=data.frame(spline(df.plot,n=50)),aes(x,y), color='red')
-
-g_cont = applyTheme(g_cont,'Propensity score')
-
+# Z is continuous
+# source('datagen/data_generation_contZ_1D.R')
+# 
+# XZ = extractXZ(data)
+# X = XZ[[1]]
+# Z = XZ[[2]]
+# dfXZ = data.frame(X,Z)
+# 
+# dimZ(Z)
+# discCheckZ(Z)
+# 
+# # Computing propensity score 
+# px.z = trainSL(X,Z,'disc',5)
+# # obtain P(X=1|Z=zi) for each all i=1,2,...,N
+# px.z.prediction = predict(px.z,Z,onlySL = T)$pred
+# 
+# df.plot = data.frame(Z,px.z.prediction)
+# colnames(df.plot)[1] = 'z'
+# colnames(df.plot)[2] = 'ps'
+# 
+# g_cont = ggplot(data=df.plot,aes(z,ps)) +
+#   geom_point(size=1.5,color='red') +
+#   geom_line(data=data.frame(spline(df.plot,n=50)),aes(x,y), color='red')
+# 
+# g_cont = applyTheme(g_cont,'Propensity score',discCheckZ(Z))
+# g_cont
