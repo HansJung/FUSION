@@ -11,7 +11,7 @@ set.seed(1)
 
 ## Configuration for data generation 
 N = 1000 # Number of data points 
-D = 5 # Dimension of the confounding variable Z 
+D = 1 # Dimension of the confounding variable Z 
 
 # Step 1. Generate Z 
 ## In here, Z is D-dimensional multivariate normal random variable. 
@@ -19,7 +19,7 @@ fZ = function(D,N){
   mu = 1*rnorm(D) # Set mu random. 
   sigma = replicate(D, abs(rnorm(D))) + 2*diag(D) # Set sigma random. 
   Z = mvrnorm(N, mu, sigma) # Generate N numbers of D-dimensional multivariate normal random variable.
-  Z = (Z - mu)/max(sigma)
+  Z = (Z-mu)/max(sigma)
   return(Z)
 }
 
@@ -30,7 +30,7 @@ fX = function(D,N,Z){
   Bx = -1*(abs(rnorm(D) + rgamma(D,1,1))) # Coefficient of Z. 
   X = +0.5*matrix(Z,ncol=D) %*% matrix(Bx,ncol=1) - 0.1
   X = exp(X)/(exp(X)+1) # Note X is continuous ranged from [0,1]
-  X = round(X,5)
+  X = round(X)
   return(X)
 }
 
@@ -49,12 +49,12 @@ fY = function(D,N, Z,X){
 Z = fZ(D,N)
 X = fX(D,N,Z)
 Y = fY(D,N,Z,X)
-data_obs = data.frame(cbind(Y,X,Z)) # Observational 
+data = data.frame(Y,X,Z) # Observational 
 
 X_intv = runif(N)
 Y_intv = fY(D,N,Z,X_intv)
 data_intv = data.frame(cbind(Y_intv,X_intv,Z))
 
-plot(data_intv[,2],data_intv[,1])
-plot(data_obs[,2],data_obs[,1])
-hist(X)
+# plot(data_intv[,2],data_intv[,1])
+# plot(data_obs[,2],data_obs[,1])
+# hist(X)
