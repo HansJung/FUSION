@@ -105,15 +105,92 @@ drawBoxPlot = function(dfXZ, unique_Z){
 drawSpilnePlot = function(Z,px.z.prediction){
   # Input: Z, P(X=1|Z=zi), for i=1,2,...,N
   # Output: plot
-  df.plot = data.frame(Z,px.z.prediction)
-  colnames(df.plot)[1] = 'z'
-  colnames(df.plot)[2] = 'ps'
+  df1 = data.frame(Z,px.z.prediction)
+  colnames(df1)[1] = 'x'
+  colnames(df1)[2] = 'y'
   
-  gg = ggplot(data=df.plot,aes(z,ps)) +
-    geom_point(size=1.5,color='red') +
-    geom_line(data=data.frame(spline(df.plot,n=10)),aes(x,y), color='red')
-  return(gg)
+  n = 50 
+  B = 200
+  alpha = 0.01
+  mycolor = 'red'
+  result_spline = spline_CI(df1,n,B,alpha)
+  df2 = data.frame( x=result_spline$x, y=result_spline$main.curve ) 
+  df3 = data.frame( x=result_spline$x, ymin=result_spline$lower.ci, ymax=result_spline$upper.ci, y=result_spline$main.curve   )
+  
+  gg1 = ggplot(df1, aes(x=x, y=y)) + geom_point(size=1.5, color = mycolor)
+  gg1 = gg1 + geom_line(data=df2,aes(x=x, y=y), color=mycolor)
+  gg1 = gg1 + geom_ribbon(data=df3, aes(x=x, ymin=ymin,ymax=ymax),alpha=0.4, fill=mycolor)
+  # gg1 = gg1 + geom_vline(data=df1,xintercept=quant_X, linetype='dotted')
+  
+  # gg = ggplot(data=df.plot,aes(z,ps)) +
+  #   geom_point(size=1.5,color='red') +
+  #   geom_line(data=data.frame(spline(df.plot,n=10)),aes(x,y), color='red')
+  return(gg1)
 }
+
+
+spline_CI <- function(data,n,B,alpha) {
+  # Role 
+  # given a (x,y) pairs, 
+  # draw a spline line 
+  # and shade an uncertainty area 
+  # Input 
+  # data: data frame, (x,y) pairs 
+  # n: number of points for estimating spline value 
+  # B: number of experiment for computing uncertainty. 
+  # recommed B >= 100, b/c it doesn't take much computation 
+  # alpha: p-value 
+  # output
+  # main.curve: spline line 
+  # lower.ci: lower confidence interval
+  # upper.ci: upper confidence interval 
+  # x: grid of x (estimating location on X)
+  
+  spline_main = spline_estimator(data,n) # Spilne estimator from given (x,y) pairs 
+  spline_boots = replicate(B,spline_estimator(resampler(data),n)) 
+  # spline boots are repeating the following works B times: 
+  # resample (x,y) pairs with replacement 
+  # given resampled (x,y), run spline 
+  # each splined result are stored column by column (not row by row)
+  # that is, each column of spline_boots are result of spline_estimator using resampled data. 
+  
+  cis_lower = 2*spline_main - apply(spline_boots,1,quantile,probs=1-alpha/2) # 2X - (X*0.95) = 
+  cis_upper = 2*spline_main - apply(spline_boots,1,quantile,probs=alpha/2) # 2X - (X*)
+  # suppose alpha = 0.05, 
+  # and we are interested in having upper and lower confidence of vector W
+  # where W = spline_main. 
+  # Note that W is approximately around at median (0.5). 
+  # therefore, 2W is approximated 100% (max).   
+  # cis_lower approximates 2W - (0.97.5W) approximates (100% - 95%), 2.5% 
+  # cis_upper approxiamtes 2W - (0.025W) approximates (100% - 5%), 97.5%. 
+  # resulting approximates 95% confidence interval band 
+  
+  return(list(main.curve=spline_main,lower.ci=cis_lower,upper.ci=cis_upper,
+              x=seq(from=min(data[,1]),to=max(data[,1]),length.out=n)))
+}
+
+resampler <- function(data) {
+  # Role 
+  # given data = (x,y), resample (x,y) with replacement 
+  n <- nrow(data)
+  resample.rows <- sample(1:n,size=n,replace=TRUE)
+  return(data[resample.rows,])
+}
+
+# Estimating spline 
+spline_estimator <- function(data,n) {
+  # given data (x,y), and n points to be estimating the spline, 
+  # estimate spline 
+  fit = smooth.spline(x=data[,1],y=data[,2],cv=TRUE)
+  eval_grid = seq(from=min(data[,1]),to=max(data[,1]),length.out=n)
+  return(predict(fit,x=eval_grid)$y) # We only want the predicted values
+}
+
+
+
+
+
+
 
 applyTheme = function(gg1, title,TF_discZ){
   # Apply theme
@@ -139,11 +216,11 @@ applyTheme = function(gg1, title,TF_discZ){
 
 
 
-################## MAIN ##################
+################## MAIN: Case 1, if Z is 1D ##################
 
 # Step 1. Load data 
-source('datagen/data_generation_simpson_disc.R') # Z 1D, discrete
-# source('datagen/data_generation_contZ_1D.R') # Z 1D, continuous
+# source('datagen/data_generation_simpson_disc.R') # Z 1D, discrete
+source('datagen/data_generation_contZ_1D.R') # Z 1D, continuous
 
 # Step 2. Extract XZ from data frame (Y,X,Z)
 XZ = extractXZ(data)
@@ -162,7 +239,7 @@ px.z.prediction = predict(px.z,Z,onlySL = T)$pred
 
 # Draw a plot 
 g_cont = drawSpilnePlot(Z,px.z.prediction) # Only a middle spline line without uncertainty shaded area. 
-g_cont = applyTheme(g_cont,'Propensity score',discCheckZ(Z))
+# g_cont = applyTheme(g_cont,'Propensity score',discCheckZ(Z))
 g_cont
 
 
